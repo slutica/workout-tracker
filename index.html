@@ -60,6 +60,13 @@
   .ph-thumb{ width:72px; height:72px; border-radius:10px; object-fit:cover; cursor:pointer; border:1px solid #e2e5ea; }
   .ph-add{ width:72px; height:72px; border-radius:10px; border:1px dashed #cfd4da; background:#f7f8fa; font-size:22px; color:#9aa0a8; cursor:pointer; }
 
+  /* body metrics */
+  .bodycard{ background:#fff; border:1px solid #e8ebf0; border-radius:16px; padding:12px 14px; margin-bottom:12px; }
+  .bc-row{ display:flex; gap:10px; }
+  .bc-f{ flex:1; }
+  .bc-f input{ width:100%; border:1px solid #d7dbe0; border-radius:12px; padding:11px; font-size:16px; text-align:center; }
+  .bc-l{ font-size:11px; color:#9a9fa8; text-align:center; margin-top:4px; }
+
   /* diary */
   .diary-write{ width:100%; background:#fff; border:1px dashed #cfd4da; border-radius:16px; padding:14px; font-size:14px; font-weight:600; color:#5a5f68; cursor:pointer; margin-bottom:12px; }
   .diary{ background:#fff; border:1px solid #e8ebf0; border-radius:16px; padding:14px 16px; margin-bottom:12px; }
@@ -108,6 +115,9 @@
   .seg{ display:flex; gap:8px; }
   .seg button{ flex:1; border:1px solid #d7dbe0; background:#fff; border-radius:12px; padding:11px; font-size:14px; font-weight:600; color:#5a5f68; cursor:pointer; }
   .seg button.on{ background:#1c1e21; border-color:#1c1e21; color:#fff; }
+  .subcats{ display:flex; flex-wrap:wrap; gap:8px; }
+  .subcats button{ border:1px solid #d7dbe0; background:#fff; border-radius:99px; padding:8px 15px; font-size:14px; font-weight:600; color:#5a5f68; cursor:pointer; }
+  .subcats button.on{ background:#3f6fd6; border-color:#3f6fd6; color:#fff; }
   .namerow{ display:flex; gap:8px; }
   #wName{ flex:1; min-width:0; border:1px solid #d7dbe0; border-radius:12px; padding:12px; font-size:16px; }
   .suggest{ border:1px solid #e2e5ea; border-radius:12px; margin-top:8px; overflow:hidden; }
@@ -169,25 +179,32 @@
         <div class="fc"><input type="number" id="wWeight" inputmode="decimal" placeholder="0"><div class="fl">무게(kg)</div></div>
         <div class="fc"><input type="number" id="wReps" inputmode="numeric" placeholder="0"><div class="fl">횟수</div></div>
         <div class="fc"><input type="number" id="wSets" inputmode="numeric" placeholder="0"><div class="fl">세트</div></div>
-        <div class="fc"><input type="number" id="wStrMin" inputmode="numeric" placeholder="0"><div class="fl">시간(분)</div></div>
+        <div class="fc"><input type="text" id="wStrMin" inputmode="decimal" placeholder="45.17"><div class="fl">시간(분.초)</div></div>
       </div>
     </div>
     <div id="cardioFields" style="display:none">
       <label class="flabel">운동량</label>
       <div class="fields">
-        <div class="fc"><input type="number" id="wMin" inputmode="numeric" placeholder="0"><div class="fl">시간(분)</div></div>
+        <div class="fc"><input type="text" id="wMin" inputmode="decimal" placeholder="45.17"><div class="fl">시간(분.초)</div></div>
         <div class="fc"><input type="number" id="wDist" inputmode="decimal" placeholder="0"><div class="fl">거리(km)</div></div>
         <div class="fc"><input type="number" id="wKcal" inputmode="numeric" placeholder="0"><div class="fl">칼로리</div></div>
       </div>
       <div class="fields" style="margin-top:8px">
-        <div class="fc"><input type="text" id="wPace" inputmode="numeric" placeholder="6:00"><div class="fl">평균 페이스(/km)</div></div>
+        <div class="fc"><input type="text" id="wPace" inputmode="text" placeholder="6:00"><div class="fl">평균 페이스(/km)</div></div>
         <div class="fc"><input type="number" id="wHr" inputmode="numeric" placeholder="0"><div class="fl">평균 심박수(bpm)</div></div>
       </div>
     </div>
     <div id="otherFields" style="display:none">
+      <label class="flabel">종류</label>
+      <div class="subcats" id="subcats">
+        <button type="button" data-sub="요가">요가</button>
+        <button type="button" data-sub="스트레칭">스트레칭</button>
+        <button type="button" data-sub="걷기">걷기</button>
+        <button type="button" data-sub="등산">등산</button>
+      </div>
       <label class="flabel">운동량</label>
       <div class="fields">
-        <div class="fc"><input type="number" id="wOtherMin" inputmode="numeric" placeholder="0"><div class="fl">시간(분)</div></div>
+        <div class="fc"><input type="text" id="wOtherMin" inputmode="decimal" placeholder="45.17"><div class="fl">시간(분.초)</div></div>
       </div>
     </div>
 
@@ -287,18 +304,23 @@ function summaryText(date){
   if(!s.count) return "기록 없음";
   const parts=[];
   if(s.sc) parts.push(`근력 ${s.sc}`);
-  if(s.cc) parts.push(s.cm? `유산소 ${s.cm}분` : `유산소 ${s.cc}`);
+  if(s.cc) parts.push(s.cm? `유산소 ${fmtDur(s.cm)}` : `유산소 ${s.cc}`);
   if(s.oc) parts.push(`기타 ${s.oc}`);
   let t=parts.join(" · ");
   if(s.kc) t+=` · ${s.kc}kcal`;
   return t;
 }
 function dayHasData(date){ const d=db.days[date]; return !!d && (((d.workouts||[]).length>0)||(d.diary&&d.diary.trim())||((d.photos||[]).length>0)); }
+// time entered as "분.초" (45분 17초 -> "45.17"); stored internally as decimal minutes
+function mmssToMin(v){ v=String(v).trim(); if(!v) return 0; if(v.indexOf(".")<0) return parseInt(v)||0;
+  const parts=v.split("."); const mm=parseInt(parts[0])||0; let s=(String(parts[1]||"")+"00").slice(0,2); let secs=parseInt(s)||0; if(secs>59) secs=59; return mm+secs/60; }
+function minToMMSS(M){ M=Number(M)||0; let mm=Math.floor(M); let secs=Math.round((M-mm)*60); if(secs===60){mm++;secs=0;} return secs?(mm+"."+String(secs).padStart(2,"0")):String(mm); }
+function fmtDur(M){ M=Number(M)||0; if(!M) return ""; let mm=Math.floor(M); let secs=Math.round((M-mm)*60); if(secs===60){mm++;secs=0;} return secs?`${mm}분 ${secs}초`:`${mm}분`; }
 function wIcon(t){ return t==="cardio"?"🏃":(t==="other"?"🧘":"🏋️"); }
 function workoutDetail(w){
-  if(w.type==="cardio"){ const p=[]; if(w.minutes)p.push(w.minutes+"분"); if(w.distance)p.push(w.distance+"km"); if(w.pace)p.push(w.pace+"/km"); if(w.hr)p.push("심박 "+w.hr); if(w.kcal)p.push(w.kcal+"kcal"); return p.join(" · ")||"기록"; }
-  if(w.type==="other"){ return w.minutes? (w.minutes+"분") : "기록"; }
-  const p=[]; if(w.weight)p.push(w.weight+"kg"); if(w.reps)p.push(w.reps+"회"); if(w.sets)p.push(w.sets+"세트"); if(w.minutes)p.push(w.minutes+"분"); return p.join(" · ")||"기록";
+  if(w.type==="cardio"){ const p=[]; if(w.minutes)p.push("시간 "+fmtDur(w.minutes)); if(w.distance)p.push("거리 "+w.distance+"km"); if(w.pace)p.push("페이스 "+w.pace+"/km"); if(w.hr)p.push("평균심박 "+w.hr); if(w.kcal)p.push("칼로리 "+w.kcal+"kcal"); return p.join(" · ")||"기록"; }
+  if(w.type==="other"){ return w.minutes? ("시간 "+fmtDur(w.minutes)) : "기록"; }
+  const p=[]; if(w.weight)p.push("무게 "+w.weight+"kg"); if(w.reps)p.push("횟수 "+w.reps+"회"); if(w.sets)p.push("세트 "+w.sets); if(w.minutes)p.push("시간 "+fmtDur(w.minutes)); return p.join(" · ")||"기록";
 }
 
 /* ---------- view routing ---------- */
@@ -335,6 +357,11 @@ function renderDay(){
     + `<div class="wcard"><header><span class="ttl">운동</span></header><div class="items">${workoutsHtml}</div></div>`
     + `<button class="addbtn" id="addWorkout">+ 운동 추가</button>`
     + `<div class="photos"><div class="ph-title">📷 운동 사진</div><div class="ph-row" id="phRow"></div></div>`
+    + `<div class="bodycard"><div class="ph-title">📏 몸 상태</div>
+        <div class="bc-row">
+          <div class="bc-f"><input type="number" id="bodyWeight" inputmode="decimal" step="0.1" placeholder="-"><div class="bc-l">체중 (kg)</div></div>
+          <div class="bc-f"><input type="number" id="bodyWaist" inputmode="decimal" step="0.1" placeholder="-"><div class="bc-l">허리둘레 (cm)</div></div>
+        </div></div>`
     + `<div id="diaryBox"></div>`
     + `<div class="toolbar"><button class="exportbtn" id="exportCsv">⬇ CSV 내보내기</button></div>`;
 
@@ -350,7 +377,20 @@ function renderDay(){
   document.querySelectorAll(".wcard .del").forEach(b=>b.onclick=()=>{ data.workouts.splice(Number(b.dataset.i),1); save(); renderDay(); });
   document.querySelectorAll(".wcard .item .info").forEach(el=>el.onclick=()=>openEdit(Number(el.dataset.i)));
   renderPhotoRow();
+  // body metrics
+  const bd=data.body||{};
+  document.getElementById("bodyWeight").value = (bd.weight||bd.weight===0)&&bd.weight!==""?bd.weight:"";
+  document.getElementById("bodyWaist").value = (bd.waist||bd.waist===0)&&bd.waist!==""?bd.waist:"";
+  document.getElementById("bodyWeight").addEventListener("change", saveBody);
+  document.getElementById("bodyWaist").addEventListener("change", saveBody);
   diaryEditing=false; renderDiary();
+}
+function saveBody(){
+  const d=dayData(cursor);
+  const w=document.getElementById("bodyWeight").value.trim();
+  const t=document.getElementById("bodyWaist").value.trim();
+  d.body={ weight: w?round1(w):"", waist: t?round1(t):"" };
+  save();
 }
 
 /* ---------- WEEK view ---------- */
@@ -369,7 +409,7 @@ function renderWeek(){
       <div class="wr${has?"":" none"}">${summaryText(ds)}${has?'<span class="dot"></span>':''}</div>
     </div>`;
   }
-  document.getElementById("view").innerHTML = navBar(`<div class="d">이번 주</div><div class="sub">${range}</div>`) + rows;
+  document.getElementById("view").innerHTML = navBar(`<div class="d">${range}</div>`) + rows;
   document.getElementById("navPrev").onclick=()=>{ shiftDayBy(-7); };
   document.getElementById("navNext").onclick=()=>{ shiftDayBy(7); };
   document.getElementById("navMid").onclick=openCalendar;
@@ -415,13 +455,14 @@ function openEdit(i){
   document.getElementById("addTitle").textContent="운동 수정";
   document.getElementById("wName").value=w.name; setType(w.type);
   if(w.type==="cardio"){
-    document.getElementById("wMin").value=w.minutes||""; document.getElementById("wDist").value=w.distance||"";
+    document.getElementById("wMin").value=w.minutes?minToMMSS(w.minutes):""; document.getElementById("wDist").value=w.distance||"";
     document.getElementById("wKcal").value=w.kcal||""; document.getElementById("wPace").value=w.pace||""; document.getElementById("wHr").value=w.hr||"";
   } else if(w.type==="other"){
-    document.getElementById("wOtherMin").value=w.minutes||"";
+    document.getElementById("wOtherMin").value=w.minutes?minToMMSS(w.minutes):"";
   } else {
-    document.getElementById("wWeight").value=w.weight||""; document.getElementById("wReps").value=w.reps||""; document.getElementById("wSets").value=w.sets||""; document.getElementById("wStrMin").value=w.minutes||"";
+    document.getElementById("wWeight").value=w.weight||""; document.getElementById("wReps").value=w.reps||""; document.getElementById("wSets").value=w.sets||""; document.getElementById("wStrMin").value=w.minutes?minToMMSS(w.minutes):"";
   }
+  syncSubcats();
   document.getElementById("addBackdrop").classList.add("on");
 }
 function closeAdd(){ document.getElementById("addBackdrop").classList.remove("on"); }
@@ -436,15 +477,19 @@ function resetAddForm(){
   setType(selType);
   ["wName","wWeight","wReps","wSets","wStrMin","wMin","wDist","wKcal","wPace","wHr","wOtherMin"].forEach(id=>document.getElementById(id).value="");
   document.getElementById("wSuggest").style.display="none";
+  syncSubcats();
 }
+function syncSubcats(){ const nm=document.getElementById("wName").value.trim();
+  document.querySelectorAll("#subcats button").forEach(b=>b.classList.toggle("on", b.dataset.sub===nm)); }
 function fillFromSaved(c){
   document.getElementById("wName").value=c.name; setType(c.type);
-  if(c.type==="cardio"){ document.getElementById("wMin").value=c.minutes||""; document.getElementById("wDist").value=c.distance||""; document.getElementById("wKcal").value=c.kcal||""; document.getElementById("wPace").value=c.pace||""; document.getElementById("wHr").value=c.hr||""; }
-  else if(c.type==="other"){ document.getElementById("wOtherMin").value=c.minutes||""; }
-  else { document.getElementById("wWeight").value=c.weight||""; document.getElementById("wReps").value=c.reps||""; document.getElementById("wSets").value=c.sets||""; document.getElementById("wStrMin").value=c.minutes||""; }
+  syncSubcats();
+  if(c.type==="cardio"){ document.getElementById("wMin").value=c.minutes?minToMMSS(c.minutes):""; document.getElementById("wDist").value=c.distance||""; document.getElementById("wKcal").value=c.kcal||""; document.getElementById("wPace").value=c.pace||""; document.getElementById("wHr").value=c.hr||""; }
+  else if(c.type==="other"){ document.getElementById("wOtherMin").value=c.minutes?minToMMSS(c.minutes):""; }
+  else { document.getElementById("wWeight").value=c.weight||""; document.getElementById("wReps").value=c.reps||""; document.getElementById("wSets").value=c.sets||""; document.getElementById("wStrMin").value=c.minutes?minToMMSS(c.minutes):""; }
   document.getElementById("wSuggest").style.display="none";
 }
-function onNameInput(){
+function onNameInput(){ syncSubcats();
   const q=normKey(document.getElementById("wName").value); const box=document.getElementById("wSuggest");
   if(!q){ box.style.display="none"; box.innerHTML=""; return; }
   const matches=Object.values(db.custom).filter(c=>normKey(c.name).includes(q)).slice(0,8);
@@ -458,9 +503,9 @@ function saveWorkout(){
   const name=document.getElementById("wName").value.trim();
   if(!name){ toast("운동명을 입력해 주세요"); return; }
   const w={ id:Math.random().toString(36).slice(2,7), type:selType, name };
-  if(selType==="cardio"){ w.minutes=round(document.getElementById("wMin").value); w.distance=round1(document.getElementById("wDist").value); w.kcal=round(document.getElementById("wKcal").value); w.pace=document.getElementById("wPace").value.trim(); w.hr=round(document.getElementById("wHr").value); }
-  else if(selType==="other"){ w.minutes=round(document.getElementById("wOtherMin").value); }
-  else { w.weight=round1(document.getElementById("wWeight").value); w.reps=round(document.getElementById("wReps").value); w.sets=round(document.getElementById("wSets").value); w.minutes=round(document.getElementById("wStrMin").value); }
+  if(selType==="cardio"){ w.minutes=mmssToMin(document.getElementById("wMin").value); w.distance=round1(document.getElementById("wDist").value); w.kcal=round(document.getElementById("wKcal").value); w.pace=document.getElementById("wPace").value.trim(); w.hr=round(document.getElementById("wHr").value); }
+  else if(selType==="other"){ w.minutes=mmssToMin(document.getElementById("wOtherMin").value); }
+  else { w.weight=round1(document.getElementById("wWeight").value); w.reps=round(document.getElementById("wReps").value); w.sets=round(document.getElementById("wSets").value); w.minutes=mmssToMin(document.getElementById("wStrMin").value); }
   if(editingIndex!=null){ const prev=dayData(cursor).workouts[editingIndex]; if(prev&&prev.id) w.id=prev.id; dayData(cursor).workouts[editingIndex]=w; }
   else { dayData(cursor).workouts.push(w); }
   // remember for autofill
@@ -576,11 +621,12 @@ async function onBackupPicked(){
 
 /* ---------- CSV ---------- */
 function exportCsv(){
-  const rows=[["날짜","종류","운동명","무게(kg)","횟수","세트","시간(분)","거리(km)","평균페이스","평균심박수","칼로리"]];
+  const rows=[["날짜","종류","운동명","무게(kg)","횟수","세트","시간(분.초)","거리(km)","평균페이스","평균심박수","칼로리"]];
+  const mm=w=>w.minutes?minToMMSS(w.minutes):"";
   Object.keys(db.days).sort().forEach(date=>{ (db.days[date].workouts||[]).forEach(w=>{
-    if(w.type==="cardio") rows.push([date,"유산소",w.name,"","","",w.minutes||"",w.distance||"",w.pace||"",w.hr||"",w.kcal||""]);
-    else if(w.type==="other") rows.push([date,"기타",w.name,"","","",w.minutes||"","","","",""]);
-    else rows.push([date,"근력",w.name,w.weight||"",w.reps||"",w.sets||"",w.minutes||"","","","",""]);
+    if(w.type==="cardio") rows.push([date,"유산소",w.name,"","","",mm(w),w.distance||"",w.pace||"",w.hr||"",w.kcal||""]);
+    else if(w.type==="other") rows.push([date,"기타",w.name,"","","",mm(w),"","","",""]);
+    else rows.push([date,"근력",w.name,w.weight||"",w.reps||"",w.sets||"",mm(w),"","","",""]);
   }); });
   if(rows.length===1){ toast("내보낼 기록이 없어요"); return; }
   const csv=rows.map(r=>r.map(c=>{ const v=String(c); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }).join(",")).join("\n");
@@ -651,6 +697,7 @@ let toastT; function toast(m){ const t=document.getElementById("toast"); t.textC
 /* ---------- static bindings ---------- */
 document.querySelectorAll(".vtoggle button").forEach(b=>b.onclick=()=>{ currentView=b.dataset.view; renderView(); });
 document.querySelectorAll("#typeSeg button").forEach(b=>b.onclick=()=>setType(b.dataset.type));
+document.querySelectorAll("#subcats button").forEach(b=>b.onclick=()=>{ document.getElementById("wName").value=b.dataset.sub; syncSubcats(); });
 document.getElementById("addCancel").onclick=closeAdd;
 document.getElementById("saveWorkout").onclick=saveWorkout;
 document.getElementById("wName").addEventListener("input", onNameInput);
