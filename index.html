@@ -295,21 +295,32 @@ function dayData(date){
 }
 function summarize(date){
   const list=(db.days[date]&&db.days[date].workouts)||[];
-  let sc=0, cc=0, oc=0, cm=0, kc=0;
-  list.forEach(w=>{ if(w.type==="cardio"){ cc++; cm+=Number(w.minutes)||0; kc+=Number(w.kcal)||0; } else if(w.type==="other"){ oc++; } else { sc++; } });
-  return { count:list.length, sc, cc, oc, cm, kc };
+  let sc=0, cc=0, oc=0, cm=0, sm=0, om=0, kc=0;
+  list.forEach(w=>{ const mn=Number(w.minutes)||0;
+    if(w.type==="cardio"){ cc++; cm+=mn; kc+=Number(w.kcal)||0; }
+    else if(w.type==="other"){ oc++; om+=mn; }
+    else { sc++; sm+=mn; } });
+  return { count:list.length, sc, cc, oc, cm, sm, om, kc };
+}
+function workoutParts(date){
+  const list=(db.days[date]&&db.days[date].workouts)||[];
+  const s=summarize(date); const parts=[];
+  if(s.sc) parts.push(s.sm? `근력 ${fmtDur(s.sm)}` : `근력 ${s.sc}`);
+  if(s.cc) parts.push(s.cm? `유산소 ${fmtDur(s.cm)}` : `유산소 ${s.cc}`);
+  const others={};
+  list.filter(w=>w.type==="other").forEach(w=>{ const k=(w.name||"기타"); others[k]=(others[k]||0)+(Number(w.minutes)||0); });
+  Object.keys(others).forEach(k=>{ parts.push(others[k]? `${k} ${fmtDur(others[k])}` : k); });
+  return parts;
 }
 function summaryText(date){
-  const s=summarize(date);
-  if(!s.count) return "기록 없음";
-  const parts=[];
-  if(s.sc) parts.push(`근력 ${s.sc}`);
-  if(s.cc) parts.push(s.cm? `유산소 ${fmtDur(s.cm)}` : `유산소 ${s.cc}`);
-  if(s.oc) parts.push(`기타 ${s.oc}`);
+  const list=(db.days[date]&&db.days[date].workouts)||[];
+  if(!list.length) return "기록 없음";
+  const parts=workoutParts(date); const s=summarize(date);
   let t=parts.join(" · ");
   if(s.kc) t+=` · ${s.kc}kcal`;
   return t;
 }
+function dayWeight(date){ const d=db.days[date]; return d&&d.body&&d.body.weight!==""&&d.body.weight!=null ? d.body.weight : null; }
 function dayHasData(date){ const d=db.days[date]; return !!d && (((d.workouts||[]).length>0)||(d.diary&&d.diary.trim())||((d.photos||[]).length>0)); }
 // time entered as "분.초" (45분 17초 -> "45.17"); stored internally as decimal minutes
 function mmssToMin(v){ v=String(v).trim(); if(!v) return 0; if(v.indexOf(".")<0) return parseInt(v)||0;
@@ -403,10 +414,14 @@ function renderWeek(){
   const wkn=["일","월","화","수","목","금","토"];
   for(let i=0;i<7;i++){
     const dd=new Date(start); dd.setDate(dd.getDate()+i); const ds=fmt(dd);
-    const has=dayHasData(ds); const isToday=ds===todayStr();
+    const isToday=ds===todayStr();
+    const parts=workoutParts(ds); const bw=dayWeight(ds);
+    const bits=[]; if(parts.length) bits.push(parts.join(" · ")); if(bw!=null) bits.push(`몸무게 ${bw}kg`);
+    const has=bits.length>0;
+    const text=has?bits.join(" · "):"기록 없음";
     rows+=`<div class="weekrow${isToday?" today":""}" data-date="${ds}">
       <div class="wl"><div class="dy">${wkn[dd.getDay()]}요일</div><div class="dt">${ds}</div></div>
-      <div class="wr${has?"":" none"}">${summaryText(ds)}${has?'<span class="dot"></span>':''}</div>
+      <div class="wr${has?"":" none"}">${esc(text)}${has?'<span class="dot"></span>':''}</div>
     </div>`;
   }
   document.getElementById("view").innerHTML = navBar(`<div class="d">${range}</div>`) + rows;
