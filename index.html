@@ -613,8 +613,9 @@ async function generateShareCard(){
   const rows=list.map(w=>({ icon:wIcon(w.type), name:w.name, detail:workoutDetail(w),
     nameLines:wrapLines(ctx, wIcon(w.type)+" "+w.name, CF(14,"600"), innerW-IND, innerW-IND) }));
 
+  const PHS = photos.length ? Math.round(Math.min(120,(innerW-(photos.length-1)*8)/photos.length)) : 0;
   let h=M+CP+52+14;
-  if(photos.length) h+=84+16;
+  if(photos.length) h+=PHS+16;
   h+=1+12;
   if(rows.length){ rows.forEach(r=>{ h+=r.nameLines.length*NAMEH+DETH+ROWGAP; }); } else h+=24;
   h+=CP+M;
@@ -628,7 +629,7 @@ async function generateShareCard(){
   ctx.fillStyle="#1c1e21"; ctx.font=CF(18,"600"); ctx.fillText(dateLabel, innerX, y+36);
   ctx.fillStyle="#3f6fd6"; ctx.font=CF(13,"600"); ctx.fillText(summaryText(cursor), innerX, y+54);
   y+=52+14;
-  if(photos.length){ const n=photos.length, pw=(innerW-(n-1)*8)/n, ph=84; photos.forEach((im,i)=>{ drawCover(ctx,im,innerX+i*(pw+8),y,pw,ph,8); }); y+=84+16; }
+  if(photos.length){ photos.forEach((im,i)=>{ drawCover(ctx,im,innerX+i*(PHS+8),y,PHS,PHS,8); }); y+=PHS+16; }
   ctx.strokeStyle="#f0f2f5"; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(innerX,y); ctx.lineTo(innerR,y); ctx.stroke(); y+=1+12;
   if(rows.length){ rows.forEach(r=>{ ctx.textAlign="left"; ctx.fillStyle="#1c1e21"; ctx.font=CF(14,"600");
       r.nameLines.forEach((ln,i)=>ctx.fillText(ln, innerX, y+13+i*NAMEH));
