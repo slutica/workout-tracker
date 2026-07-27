@@ -226,10 +226,6 @@
     </div>
     <div style="font-size:11px;color:#9a9fa8;margin-top:8px;line-height:1.5;">기록·사진을 파일 하나로 내보내 iCloud Drive에 저장하세요. 다른 기기에서 "복원 가져오기"로 불러오면 반영됩니다. 가져오면 이 기기 기록은 백업으로 덮어써져요.</div>
 
-    <div class="flabel" style="margin-top:16px;border-top:1px solid #f0f2f5;padding-top:14px;">피트니스 가져오기 (단축어)</div>
-    <div class="synbtns"><button class="exportbtn" id="fitnessImport">🏃 피트니스 데이터 가져오기</button></div>
-    <div style="font-size:11px;color:#9a9fa8;margin-top:8px;line-height:1.5;">단축어로 건강 앱 운동을 내보낸 JSON 파일을 불러와요. 기존 기록에 <b>합쳐지고</b>, 이미 가져온 운동은 <b>중복 없이 건너뜁니다</b>.</div>
-
     <div class="actions"><button class="btn primary" id="setClose">완료</button></div>
   </div>
 </div>
@@ -248,7 +244,6 @@
 
 <input type="file" id="photoInput" accept="image/*" style="display:none">
 <input type="file" id="backupInput" accept="application/json,.json" style="display:none">
-<input type="file" id="fitnessInput" accept="application/json,.json" style="display:none">
 <div class="toast" id="toast"></div>
 
 <script>
@@ -370,7 +365,7 @@ function renderWeek(){
     const dd=new Date(start); dd.setDate(dd.getDate()+i); const ds=fmt(dd);
     const has=dayHasData(ds); const isToday=ds===todayStr();
     rows+=`<div class="weekrow${isToday?" today":""}" data-date="${ds}">
-      <div class="wl"><div class="dy">${wkn[dd.getDay()]} ${dd.getDate()}일</div><div class="dt">${ds}</div></div>
+      <div class="wl"><div class="dy">${wkn[dd.getDay()]}요일</div><div class="dt">${ds}</div></div>
       <div class="wr${has?"":" none"}">${summaryText(ds)}${has?'<span class="dot"></span>':''}</div>
     </div>`;
   }
@@ -579,37 +574,6 @@ async function onBackupPicked(){
   }catch(e){ console.error(e); toast("가져오기에 실패했어요"); }
 }
 
-/* ---------- fitness import (Shortcuts, merge) ---------- */
-function pickFitness(){ const inp=document.getElementById("fitnessInput"); inp.value=""; inp.click(); }
-async function onFitnessPicked(){
-  const inp=document.getElementById("fitnessInput"); const f=inp.files&&inp.files[0]; if(!f) return;
-  try{ const obj=JSON.parse(await f.text());
-    if(!obj || obj.type!=="workouts-import" || !Array.isArray(obj.workouts)){ toast("피트니스 가져오기 파일이 아니에요"); return; }
-    document.getElementById("setBackdrop").classList.remove("on");
-    importFitness(obj);
-  }catch(e){ console.error(e); toast("가져오기에 실패했어요"); }
-}
-function importFitness(payload){
-  if(!db.importedIds) db.importedIds={};
-  let added=0, skipped=0;
-  payload.workouts.forEach(w=>{
-    const date=String(w.date||"").slice(0,10); if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
-    const kind=(w.kind==="strength"||w.kind==="other")?w.kind:"cardio";
-    // dedupe by uuid if present, else by a synthetic key (date+kind+name+minutes+distance)
-    const key = w.uuid || `${date}|${kind}|${w.name||""}|${round(w.minutes)}|${round1(w.distance)}`;
-    if(db.importedIds[key]){ skipped++; return; }
-    const e={ id:Math.random().toString(36).slice(2,7), type:kind, name:(w.name||(kind==="cardio"?"유산소":kind==="other"?"기타":"근력")), source:"fitness" };
-    if(kind==="cardio"){ e.minutes=round(w.minutes); e.distance=round1(w.distance); e.kcal=round(w.kcal); e.pace=String(w.pace||"").trim(); e.hr=round(w.hr); }
-    else if(kind==="other"){ e.minutes=round(w.minutes); }
-    else { e.weight=round1(w.weight); e.reps=round(w.reps); e.sets=round(w.sets); e.minutes=round(w.minutes); }
-    dayData(date).workouts.push(e);
-    db.importedIds[key]=1;
-    added++;
-  });
-  save(); renderView();
-  toast(`가져오기 완료 · ${added}개 추가${skipped?`, ${skipped}개 중복 건너뜀`:""}`);
-}
-
 /* ---------- CSV ---------- */
 function exportCsv(){
   const rows=[["날짜","종류","운동명","무게(kg)","횟수","세트","시간(분)","거리(km)","평균페이스","평균심박수","칼로리"]];
@@ -700,8 +664,6 @@ document.getElementById("setBackdrop").onclick=e=>{ if(e.target.id==="setBackdro
 document.getElementById("backupExport").onclick=exportBackup;
 document.getElementById("backupImport").onclick=pickBackup;
 document.getElementById("backupInput").addEventListener("change", onBackupPicked);
-document.getElementById("fitnessImport").onclick=pickFitness;
-document.getElementById("fitnessInput").addEventListener("change", onFitnessPicked);
 document.getElementById("photoInput").addEventListener("change", onPhotoPicked);
 document.getElementById("photoClose").onclick=closePhotoViewer;
 document.getElementById("photoDelete").onclick=async()=>{ if(!viewerId) return; const id=viewerId; try{ await photoDel(id); }catch(e){}
